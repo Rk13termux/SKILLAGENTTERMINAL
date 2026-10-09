@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+"""Tutorrec Cinematográfico (modo real) - Generado por edu-factory.
+
+Plan: Termux desde Cero: Domina la terminal en tu Android (TERMUX-101)
+Módulo: Proyecto final (crear y desplegar un Bot de Telegram) · Lección: Desplegarlo en segundo plano y mantenerlo vivo
+6 comandos extraídos del plan maestro.
+Modo real: escribe los comandos y los ejecuta de verdad en el sistema.
+"""
+
+import sys
+from pathlib import Path
+
+for _padre in Path(__file__).resolve().parents:
+    if (_padre / "tutorrec").is_dir():
+        sys.path.insert(0, str(_padre))
+        break
+
+from tutorrec.cinematic import CinematicTerminal  # noqa: E402
+
+SECUENCIA = [
+    {
+        'comando': 'pkg install termux-api',
+        'descripcion': 'Paso 1 de 6: Desplegarlo en segundo plano y mantenerlo vivo',
+    },
+    {
+        'comando': 'termux-wake-lock',
+        'descripcion': 'Paso 2 de 6: Desplegarlo en segundo plano y mantenerlo vivo',
+    },
+    {
+        'comando': 'nohup python bot.py > bot.log 2>&1 &',
+        'descripcion': 'Paso 3 de 6: Desplegarlo en segundo plano y mantenerlo vivo',
+    },
+    {
+        'comando': 'tail -f bot.log',
+        'descripcion': 'Paso 4 de 6: Desplegarlo en segundo plano y mantenerlo vivo',
+    },
+    {
+        'comando': 'ps aux | grep bot.py',
+        'descripcion': 'Paso 5 de 6: Desplegarlo en segundo plano y mantenerlo vivo',
+    },
+    {
+        'comando': 'kill $(pgrep -f bot.py)',
+        'descripcion': 'Paso 6 de 6: Desplegarlo en segundo plano y mantenerlo vivo',
+    },
+]
+
+if __name__ == "__main__":
+    CinematicTerminal(mode="real").ejecutar_secuencia(SECUENCIA)

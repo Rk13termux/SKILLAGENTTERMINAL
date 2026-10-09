@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.venv/
+venv/
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Entorno y secretos (nunca subir claves reales)
+.env
+.env.*
+*.pem
+*.key
