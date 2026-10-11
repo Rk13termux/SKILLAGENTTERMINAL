@@ -17,3 +17,12 @@ Thumbs.db
 .env.*
 *.pem
 *.key
+
+# Contenido generado por la skill (cursos, grabaciones y cachés de zsh)
+edu-factory/productions/
+*.cast
+*.mp4
+*.gif
+*.zwc
+.zcompdump*
+leccion-*.cast

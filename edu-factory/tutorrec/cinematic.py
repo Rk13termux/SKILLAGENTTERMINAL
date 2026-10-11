@@ -16,7 +16,8 @@ from typing import Any
 
 from tutorrec import CIAN, AMARILLO, DIM, RESET, ROJO, VERDE, limpiar_permite, soporta_color
 from tutorrec.human_typing import pausa_pensando, pausa_post_enter, typewriter_humano
-from tutorrec.output_simulator import generar_output_realista
+from tutorrec.output_simulator import generar_output_realista, es_comando_largo
+
 
 BANNER_TERMUX = """\
 Welcome to Termux!
@@ -65,6 +66,7 @@ class CinematicTerminal:
         self.prompt = prompt
         self.banner = banner
         self.output_file = output_file or os.environ.get("TUTORREC_OUTPUT", "recording.cast")
+        self.pausa_post_default = float(os.environ.get("TUTORREC_PAUSA_FINAL", "5.0"))
         self._color = soporta_color()
         self.usuario = self._usuario_real()
         self.hostname = socket.gethostname() or "localhost"
@@ -129,12 +131,27 @@ class CinematicTerminal:
             sys.stdout.write("\033[2J\033[H")
             sys.stdout.flush()
 
-    def simular_output(self, lineas: list[str]) -> None:
-        for linea in lineas:
+    def simular_output(self, lineas: list[str], largo: bool = False) -> None:
+        n = len(lineas)
+        for idx, linea in enumerate(lineas):
             self.escribir_color(linea, CIAN)
             sys.stdout.write("\n")
             sys.stdout.flush()
-            if self.pausas_naturales:
+            if not self.pausas_naturales:
+                continue
+            # Scroll realista en salidas largas: delay mayor por línea,
+            # un poco más lento al inicio (conexión) y en barras de progreso
+            if largo:
+                es_progreso = any(
+                    marcas in linea for marcas in ("%", "█", "▓", "Get:", "Receiving", "Resolving")
+                )
+                if es_progreso:
+                    time.sleep(random.uniform(0.22, 0.45))
+                elif idx < 2:
+                    time.sleep(random.uniform(0.35, 0.7))
+                else:
+                    time.sleep(random.uniform(0.12, 0.28))
+            else:
                 time.sleep(random.uniform(0.02, 0.07))
 
     def ejecutar_secuencia(self, comandos: list[dict[str, Any]]) -> None:
@@ -165,7 +182,6 @@ class CinematicTerminal:
         if not ruta.endswith(".cast"):
             ruta += ".cast"
         grabador.grabar(comandos, ruta)
-        self._color = self._color
         print("\nGrabado en: " + ruta, file=sys.stderr)
         print("Reproduce con: asciinema play " + ruta, file=sys.stderr)
         print("Convierte con: agg " + ruta + " video.gif", file=sys.stderr)
@@ -185,8 +201,9 @@ class CinematicTerminal:
     def _ejecutar_paso(self, paso: dict[str, Any], indice: int, total: int) -> None:
         comando = str(paso.get("comando", "")).strip()
         descripcion = paso.get("descripcion", "")
-        pausa_post = float(paso.get("pausa_post", 1.6))
+        pausa_post = float(paso.get("pausa_post", self.pausa_post_default))
         output = paso.get("output")
+        largo = es_comando_largo(comando)
 
         if comando.startswith("cd "):
             self._aplicar_cd(comando[3:].strip().lstrip(";").lstrip())
@@ -215,8 +232,9 @@ class CinematicTerminal:
         else:
             if output is None:
                 output = generar_output_realista(comando)
-            self.simular_output(list(output))
+            self.simular_output(list(output), largo=largo)
 
+        # Hold 5s (o pausa del paso) para leer el final del scroll
         if self.pausas_naturales:
             time.sleep(pausa_post)
 

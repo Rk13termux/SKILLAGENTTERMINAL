@@ -10,7 +10,8 @@ Modo real: escribe los comandos y los ejecuta de verdad en el sistema.
 import sys
 from pathlib import Path
 
-for _padre in Path(__file__).resolve().parents:
+_RAIZ_EDU_FACTORY = "/home/sebas/.local/share/edu-factory"
+for _padre in (Path(_RAIZ_EDU_FACTORY), *Path(__file__).resolve().parents):
     if (_padre / "tutorrec").is_dir():
         sys.path.insert(0, str(_padre))
         break

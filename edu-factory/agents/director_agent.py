@@ -67,6 +67,7 @@ class DirectorAgent(BaseAgent):
                 "    {\n"
                 f"        'comando': {comando!r},\n"
                 f"        'descripcion': {descripcion!r},\n"
+                "        'pausa_post': 5.0,\n"
                 "    },"
             )
         return "\n".join(pasos)

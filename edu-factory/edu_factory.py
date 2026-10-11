@@ -24,7 +24,9 @@ from core.parser import CurriculumError, MasterLesson, parse_master_lesson, slug
 
 RAIZ = Path(__file__).resolve().parent
 PLAN_DEFECTO = RAIZ / "curriculum" / "master-lesson.md"
-SALIDA_DEFECTO = RAIZ / "productions"
+SALIDA_DEFECTO = Path(
+    os.environ.get("EDU_FACTORY_WORKSPACE", "/mnt/sdcard/WORKSPACETERMUX")
+)
 
 AGENTES = {
     "social": SocialAgent,
@@ -144,8 +146,9 @@ def ejecutar_tutorrec(
             entorno["TUTORREC_DESCRIPCION"] = "1"
         if backend == "asciinema":
             entorno["TUTORREC_BACKEND"] = "asciinema"
-            if output is None:
-                entorno["TUTORREC_OUTPUT"] = str(ruta.parent / f"leccion-{clave}.cast")
+            entorno["TUTORREC_OUTPUT"] = (
+                output if output is not None else str(ruta.parent / f"leccion-{clave}.cast")
+            )
         elif output is not None:
             entorno["TUTORREC_OUTPUT"] = output
         retorno = subprocess.call(cmd, env={**os.environ, **entorno})

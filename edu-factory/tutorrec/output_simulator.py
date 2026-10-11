@@ -2,11 +2,91 @@
 
 Devuelve una lista de líneas que el terminal simularía; [] si el comando
 normalmente no produce salida visible o no se conoce su salida.
+Las salidas largas (apk update, git clone...) incluyen scroll completo
+hasta el final (progress bar → Done) para verse profesionales en video.
 """
 
 from __future__ import annotations
 
 import re
+
+
+def es_comando_largo(comando: str) -> bool:
+    """True si el comando suele generar salida larga / espera de red."""
+    patrones = (
+        "apk update",
+        "apk upgrade",
+        "apk add",
+        "pkg install",
+        "pkg update",
+        "pkg upgrade",
+        "apt update",
+        "apt upgrade",
+        "apt install",
+        "git clone",
+        "git push",
+        "git pull",
+        "curl ",
+        "wget ",
+        "npm install",
+        "npm i ",
+        "pip install",
+        "make ",
+        "cmake ",
+        "cargo build",
+        "go build",
+    )
+    bajo = comando.strip().lower()
+    return any(bajo.startswith(p) or f" {p}" in f" {bajo}" for p in patrones)
+
+
+def _apk_update() -> list[str]:
+    """apk update — índice completo + fetch con scroll profesional."""
+    return [
+        "fetch https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/APKINDEX.tar.gz",
+        "fetch https://dl-cdn.alpinelinux.org/alpine/v3.22/community/x86_64/APKINDEX.tar.gz",
+        "OK: 27957 distinct packages available",
+    ]
+
+
+def _apk_upgrade() -> list[str]:
+    """apk upgrade — progreso realista con scroll hasta el final."""
+    return [
+        "OK: 33294 KiB in 84 packages",
+        "(1/6) Upgrading musl (1.2.5-r18 -> 1.2.5-r19)",
+        "(2/6) Upgrading busybox (1.37.0-r29 -> 1.37.0-r31)",
+        "(3/6) Upgrading alpine-base (3.4.0-r18 -> 3.4.0-r19)",
+        "Executing alpine-base-3.4.0-r19.post-upgrade",
+        "(4/6) Upgrading ssl_client (3.7.3-r0 -> 3.7.4-r0)",
+        "(5/6) Upgrading ca-certificates-bundle (20241121-r0 -> 20241121-r1)",
+        "(6/6) Upgrading libcrypto3 (3.3.3-r1 -> 3.3.4-r0)",
+        "Executing busybox-1.37.0-r31.trigger",
+        "Executing ca-certificates-bundle-20241121-r1.trigger",
+        "OK: 33328 KiB in 84 packages",
+    ]
+
+
+def _apk_add(comando: str) -> list[str]:
+    """apk add — install con progreso estilo Alpine."""
+    resto = comando[len("apk add"):].strip()
+    paquetes = [p for p in resto.split() if not p.startswith("-")]
+    if not paquetes:
+        return ["OK: 27957 distinct packages available"]
+    lineas = [
+        f"fetch https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/APKINDEX.tar.gz",
+        f"fetch https://dl-cdn.alpinelinux.org/alpine/v3.22/community/x86_64/APKINDEX.tar.gz",
+        "(1/3) Installing ca-certificates-bundle (20241121-r1)",
+        "(2/3) Installing nghttp2-libs (1.64.0-r0)",
+        "(3/3) Installing " + (paquetes[0] if paquetes else "paquete"),
+    ]
+    for pkg in paquetes:
+        lineas.append(f"Executing {pkg}-1.0.0-r0.trigger")
+    # Barras de progreso estilo apk
+    for pct in (0, 12, 28, 45, 62, 78, 91, 100):
+        barra = "█" * (pct // 5) + "░" * (20 - pct // 5)
+        lineas.append(f"{barra} {pct}%")
+    lineas.append(f"OK: 12345 KiB in 87 packages")
+    return lineas
 
 
 def _pkg(comando: str) -> list[str]:
@@ -56,15 +136,27 @@ def _git_clone(comando: str) -> list[str]:
     repo = url.rstrip("/").split("/")[-1]
     if repo.endswith(".git"):
         repo = repo[:-4]
-    return [
+    # Scroll completo: enumerar → comprimir → recibir con % → resolver → done
+    lineas = [
         f"Cloning into '{repo}'...",
-        "remote: Enumerating objects: 42, done.",
-        "remote: Counting objects: 100% (42/42), done.",
-        "remote: Compressing objects: 100% (30/30), done.",
-        "remote: Total 42 (delta 10), reused 42 (delta 10)",
-        "Receiving objects: 100% (42/42), 1.20 MiB | 1.10 MiB/s, done.",
-        "Resolving deltas: 100% (10/10), done.",
+        "remote: Enumerating objects: 1547, done.",
+        "remote: Counting objects: 100% (1547/1547), done.",
+        "remote: Compressing objects: 100% (892/892), done.",
+        "remote: Total 1547 (delta 701), reused 1298 (delta 589), pack-reused 0 (from 0)",
+        "Receiving objects:   5% (78/1547), 120.00 KiB | 1.50 MiB/s",
+        "Receiving objects:  15% (233/1547), 1.20 MiB | 4.10 MiB/s",
+        "Receiving objects:  28% (434/1547), 2.80 MiB | 5.20 MiB/s",
+        "Receiving objects:  41% (635/1547), 4.10 MiB | 4.80 MiB/s",
+        "Receiving objects:  55% (851/1547), 5.60 MiB | 4.50 MiB/s",
+        "Receiving objects:  68% (1052/1547), 7.20 MiB | 4.90 MiB/s",
+        "Receiving objects:  81% (1254/1547), 8.80 MiB | 5.10 MiB/s",
+        "Receiving objects:  94% (1455/1547), 10.40 MiB | 5.30 MiB/s",
+        "Receiving objects: 100% (1547/1547), 11.20 MiB | 5.00 MiB/s, done.",
+        "Resolving deltas:  35% (246/701)",
+        "Resolving deltas:  68% (478/701)",
+        "Resolving deltas: 100% (701/701), completed with 182 local objects.",
     ]
+    return lineas
 
 
 def _git_status() -> list[str]:
@@ -148,8 +240,12 @@ def _pip_install() -> list[str]:
     return [
         "Collecting paquete",
         "  Downloading paquete-1.2.3-py3-none-any.whl (84 kB)",
-        "Installing collected packages: paquete",
-        "Successfully installed paquete-1.2.3",
+        "     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  84.0/84.0 kB 2.1 MB/s eta 0:00",
+        "Collecting dependencia>=1.0 (from paquete)",
+        "  Downloading dependencia-4.5.0-py3-none-any.whl (42 kB)",
+        "     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  42.0/42.0 kB 1.8 MB/s eta 0:00",
+        "Installing collected packages: dependencia, paquete",
+        "Successfully installed dependencia-4.5.0 paquete-1.2.3",
     ]
 
 
@@ -175,8 +271,41 @@ def _npm_init() -> list[str]:
 
 def _npm_install() -> list[str]:
     return [
-        "added 1 package in 4s",
+        "npm warn deprecated paquete@1.0.0: Package no longer supported",
+        "npm notice created a lockfile as package-lock.json",
+        "added 142 packages, and audited 143 packages in 4s",
+        "",
         "found 0 vulnerabilities",
+    ]
+
+
+def _curl_body() -> list[str]:
+    return [
+        "<!DOCTYPE html>",
+        "<html lang=\"en\">",
+        "<head><meta charset=\"utf-8\"><title>Ejemplo</title></head>",
+        "<body><h1>Respuesta OK</h1></body>",
+        "</html>",
+    ]
+
+
+def _wget(comando: str) -> list[str]:
+    from datetime import datetime
+
+    ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    destino = comando.split()[-1] if comando.split() else "index.html"
+    nombre = destino.rstrip("/").split("/")[-1] or "index.html"
+    return [
+        f"--{ahora}--  {destino}",
+        "Resolving host... 1.2.3.4",
+        "Connecting... connected.",
+        "HTTP request sent, awaiting response... 200 OK",
+        "Length: 12345 (12K) [text/html]",
+        f"Saving to: '{nombre}'",
+        "",
+        f"{nombre:<16} 100%[===================>]  12.06K  --.-KB/s    in 0.01s",
+        "",
+        f"{ahora} (1.02 MB/s) - '{nombre}' saved [12345/12345]",
     ]
 
 
@@ -252,9 +381,15 @@ def _curl_headers() -> list[str]:
 
 
 REGLA: list[tuple[re.Pattern, object]] = [
+    (re.compile(r"^apk\s+update\b"), _apk_update),
+    (re.compile(r"^apk\s+upgrade\b"), _apk_upgrade),
+    (re.compile(r"^apk\s+add\b"), _apk_add),
     (re.compile(r"^pkg\s+install\b"), _pkg_install),
     (re.compile(r"^pkg\s+(update|upgrade)\b"), _pkg),
     (re.compile(r"^pkg\s+list-installed\b"), _pkg_list),
+    (re.compile(r"^apt\s+update\b"), _pkg),
+    (re.compile(r"^apt\s+upgrade\b"), _pkg),
+    (re.compile(r"^apt\s+install\b"), _pkg_install),
     (re.compile(r"^git\s+clone\b"), _git_clone),
     (re.compile(r"^git\s+status\b"), _git_status),
     (re.compile(r"^git\s+init\b"), _git_init),
@@ -281,6 +416,8 @@ REGLA: list[tuple[re.Pattern, object]] = [
     (re.compile(r"^echo\b"), _echo),
     (re.compile(r"^ping\b"), _ping),
     (re.compile(r"^curl\s+-\w*I\b"), _curl_headers),
+    (re.compile(r"^curl\b"), _curl_body),
+    (re.compile(r"^wget\b"), _wget),
 ]
 
 

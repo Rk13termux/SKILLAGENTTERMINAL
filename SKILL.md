@@ -20,11 +20,10 @@ y produce tres familias de salida:
 
 ## Ubicación del proyecto
 
-`/home/RK13/RK13/SKILLAGENTERMUX/edu-factory/`
+`/home/sebas/.local/share/edu-factory/`
 
 - `edu_factory.py` — CLI orquestador
 - `curriculum/` — planes de entrada (`.md`)
-- `productions/` — salidas generadas
 - `templates/` — plantillas de los agentes
 - `core/parser.py` — lee y valida el master-lesson
 - `agents/social_agent.py`, `agents/course_agent.py`, `agents/director_agent.py`
@@ -33,7 +32,42 @@ y produce tres familias de salida:
   - `human_typing.py` — escritura humana variable
   - `output_simulator.py` — output realista por tipo de comando
   - `cli.py` — CLI de pruebas (`python3 -m tutorrec.cli`)
+  - `pty_recorder.py` — graba la terminal real a `.cast` (asciinema v2)
   - `sequences/` — secuencias de ejemplo (termux, git, python)
+
+Lanzador en el PATH: `edu-factory <comando> [args]` (ejecuta el CLI desde la
+raíz del proyecto; equivale a
+`cd /home/sebas/.local/share/edu-factory && python3 edu_factory.py ...`).
+Ejemplo: `edu-factory all curriculum/master-lesson-<slug>.md -s /mnt/sdcard/WORKSPACETERMUX/<slug>`.
+
+## Workspace de salida (obligatorio en este entorno)
+
+Todos los proyectos/contenidos generados se guardan en:
+
+```
+/mnt/sdcard/WORKSPACETERMUX/<slug-del-plan>/
+```
+
+Reglas:
+
+- Usa **siempre** `-s /mnt/sdcard/WORKSPACETERMUX/<slug>` en los comandos
+  `social`, `course`, `director`, `all` y `tutorrec`.
+- `<slug>` = `id` del plan en minúsculas con guiones (p. ej. `TERMUX-101`
+  → `termux-101`). Si no hay `id`, derívalo del título.
+- La salida por defecto del CLI ya es `/mnt/sdcard/WORKSPACETERMUX` (override
+  con la env var `EDU_FACTORY_WORKSPACE`), pero **prefiere el subdirectorio por
+  proyecto** para no mezclar cursos.
+- Los `master-lesson.md` de entrada se crean en
+  `/home/sebas/.local/share/edu-factory/curriculum/`.
+
+## Entorno
+
+- Alpine Linux (PRoot) en Android. Shell por defecto: `/bin/bash`.
+- Python 3.14 (venv). El motor es **solo stdlib**, sin `pip install`.
+- Herramientas presentes: `ffmpeg`, `ffprobe`. Opcionales para reproducir/convertir
+  grabaciones: `asciinema` y `agg`.
+- La grabación de terminal real (backend `asciinema`) usa un PTY de stdlib y
+  **no** necesita `asciinema` instalado para grabar; solo para reproducir/convertir.
 
 ## Formato del master-lesson.md
 
@@ -83,33 +117,36 @@ Reglas de validación:
 ## Flujo de trabajo
 
 1. Si el usuario da un tema (sin plan), propón/crea tú el `master-lesson.md`
-   siguiendo el formato de arriba en `curriculum/master-lesson-<slug>.md`,
+   siguiendo el formato de arriba en
+   `/home/sebas/.local/share/edu-factory/curriculum/master-lesson-<slug>.md`,
    con comandos reales y verificables en cada lección.
-2. Valida:
+2. Valida (ejecuta con `workdir` = `/home/sebas/.local/share/edu-factory`):
 
    ```bash
    python3 edu_factory.py validate curriculum/master-lesson-<slug>.md
    ```
 
-3. Genera todo:
+3. Genera todo en el workspace obligatorio:
 
    ```bash
-   python3 edu_factory.py all curriculum/master-lesson-<slug>.md -s productions
+   python3 edu_factory.py all curriculum/master-lesson-<slug>.md \
+     -s /mnt/sdcard/WORKSPACETERMUX/<slug>
    ```
 
    O por agente: `social`, `course`, `director`.
 
-4. Informa las rutas de salida dentro de `productions/` y deja lista la próxima
-   acción (grabar con `tutorrec.py`, grabar voz en off, etc.).
+4. Informa las rutas de salida dentro de
+   `/mnt/sdcard/WORKSPACETERMUX/<slug>/` y deja lista la próxima acción
+   (grabar con `tutorrec.py`, grabar voz en off, etc.).
 
-## Salidas por lección
+## Salidas por lección (dentro de `/mnt/sdcard/WORKSPACETERMUX/<slug>/`)
 
-- `productions/social/modulo-N-*/leccion-M-*/video_short.md`
-- `productions/social/.../video_long.md`
-- `productions/social/.../post_static.md`
-- `productions/cursos/<slug>/temario.md` + `modulo-N-*.md`
-- `productions/direccion/modulo-N-*/leccion-M-*/tutorrec.py` (demo)
-- `productions/direccion/.../tutorrec_real.py` (real)
+- `social/modulo-N-*/leccion-M-*/video_short.md`
+- `social/.../video_long.md`
+- `social/.../post_static.md`
+- `cursos/<slug>/temario.md` + `modulo-N-*.md`
+- `direccion/modulo-N-*/leccion-M-*/tutorrec.py` (demo)
+- `direccion/.../tutorrec_real.py` (real)
 
 ## Tutorrec cinematográfico (grabación)
 
@@ -157,7 +194,9 @@ El backend ANSI simula colores; el backend **asciinema** graba tu terminal REAL
 Grabar una lección con la terminal real:
 
 ```bash
-python3 edu_factory.py tutorrec curriculum/<plan>.md -l 1.2 -m demo --backend asciinema
+python3 edu_factory.py tutorrec curriculum/master-lesson-<slug>.md \
+  -l 1.2 -m demo --backend asciinema \
+  -s /mnt/sdcard/WORKSPACETERMUX/<slug>
 ```
 
 Probar las secuencias de ejemplo:
@@ -171,17 +210,30 @@ Grabar una lección del plan:
 
 ```bash
 # listar lecciones con comandos
-python3 edu_factory.py tutorrec curriculum/<plan>.md
+python3 edu_factory.py tutorrec curriculum/master-lesson-<slug>.md \
+  -s /mnt/sdcard/WORKSPACETERMUX/<slug>
 
 # grabar una (demo simula output; real ejecuta)
-python3 edu_factory.py tutorrec curriculum/<plan>.md -l 1.2 -m demo
-python3 edu_factory.py tutorrec curriculum/<plan>.md -l 6.2 -m real
+python3 edu_factory.py tutorrec curriculum/master-lesson-<slug>.md \
+  -l 1.2 -m demo -s /mnt/sdcard/WORKSPACETERMUX/<slug>
+python3 edu_factory.py tutorrec curriculum/master-lesson-<slug>.md \
+  -l 6.2 -m real -s /mnt/sdcard/WORKSPACETERMUX/<slug>
 ```
 
-O lanzar el script directo:
+O lanzar el script directo (los scripts generados ya localizan el motor por su
+ruta absoluta, así que puedes ejecutarlos desde cualquier carpeta):
 
 ```bash
-python3 productions/direccion/modulo-N-*/leccion-M-*/tutorrec.py
+python3 /mnt/sdcard/WORKSPACETERMUX/<slug>/direccion/modulo-N-*/leccion-M-*/tutorrec.py
+```
+
+Convertir a GIF/MP4 (formato reel 9:16):
+
+```bash
+agg --cols 60 --rows 46 leccion-1.1.cast leccion-1.1.gif
+ffmpeg -y -i leccion-1.1.gif \
+  -vf "scale=1080:-2,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black" \
+  -c:v libx264 -pix_fmt yuv420p -movflags +faststart leccion-1.1.mp4
 ```
 
 Consejos de grabación: para generar el video, ejecuta el tutorrec con la
@@ -190,10 +242,13 @@ que los comandos se ejecuten en el dispositivo (prueba primero en demo).
 
 ## Notas
 
-- No modifiques el código del proyecto salvo que el usuario lo pida.
 - Escribe todo contenido (guiones, copy, resúmenes) en español neutro, sin
   regionalismos y sin voseo.
 - Tono de los guiones: autoridad didáctica, serena, técnica. Prohibido clickbait
   engañoso o promesas vacías; los comandos/ejemplos deben ser reales.
-- Aunque la skill se invoque desde cualquier carpeta, ejecuta los comandos con
-  `workdir` = ruta del proyecto para que las rutas relativas funcionen.
+- Ejecuta siempre los comandos del CLI con `workdir` =
+  `/home/sebas/.local/share/edu-factory`, y con `-s` apuntando al workspace
+  `/mnt/sdcard/WORKSPACETERMUX/<slug>`.
+- **Modo `real`**: ejecuta los comandos del plan con `os.system` en el sistema.
+  Por defecto usa `demo` (solo simula). Nunca corras `real` sin revisar antes
+  los comandos del plan.
